@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>视频Slides播放器</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">VS</div>
+        <div>
+          <div class="title">视频Slides播放器</div>
+          <div class="subtitle">资源自动扫描 · 动画快进快退 · 时间轴可视化 · 无闪烁</div>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="hint">空格/Enter：快进下一个loop · ←：快退上一个loop · 点击资源一键加载</div>
+      </div>
+    </header>
+    <main class="grid">
+      <section class="card video-area">
+        <div class="toolbar">
+          <div id="resource-list" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        </div>
+        <div class="video-wrapper" style="margin-bottom:16px;">
+          <video id="player" controls playsinline></video>
+        </div>
+        <div class="card timeline" style="margin-bottom:16px;">
+          <div style="font-weight:600;margin-bottom:8px">时间轴 (点击片段可跳转)</div>
+          <div id="timeline-bar" style="position:relative;height:28px;width:100%;background:var(--glass);border-radius:8px;"></div>
+        </div>
+        <div class="timeline card">
+          <div class="controls-row">
+            <button id="prev-clip" class="btn">上一loop</button>
+            <button id="next-clip" class="btn">下一个loop</button>
+            <button id="loop-clip" class="btn secondary">循环当前</button>
+          </div>
+        </div>
+      </section>
+      <aside class="card side">
+        <h3>可视化JSON编辑器</h3>
+        <textarea id="json-editor" style="width:100%;height:220px"></textarea>
+        <button id="save-json" class="btn">更新JSON</button>
+      </aside>
+    </main>
+    <footer class="card footer">
+      自动扫描resource文件夹，动画快进/快退，loop自动循环，transitional自动快进
+    </footer>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+video-slides-backend/
+├── app.py             # Flask主程序
+├── player.py          # 播放控制核心逻辑
+├── requirements.txt   # 依赖
+├── static/
+│   ├── css/
+│   │   └── styles.css
+│   └── js/
+│       └── app.js
+├── templates/
+│   └── index.html
+└── uploads/
+    └── (用户上传的视频和json)
