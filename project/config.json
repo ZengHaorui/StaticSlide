@@ -1,0 +1,56 @@
+[
+  {
+    "id": 0,
+    "loop_start": 1.09,
+    "loop_end": 4.65,
+    "next_id": 1
+  },
+  {
+    "id": 1,
+    "loop_start": 6.04,
+    "loop_end": 10.05,
+    "next_id": 2
+  },
+  {
+    "id": 2,
+    "loop_start": 14.16,
+    "loop_end": 18.43,
+    "next_id": 3
+  },
+  {
+    "id": 3,
+    "loop_start": 21.71,
+    "loop_end": 23.59,
+    "next_id": 4
+  },
+  {
+    "id": 4,
+    "loop_start": 23.59,
+    "loop_end": 24.55,
+    "next_id": 5
+  },
+  {
+    "id": 5,
+    "loop_start": 105.23,
+    "loop_end": 128.71,
+    "next_id": 6
+  },
+  {
+    "id": 6,
+    "loop_start": 131.97,
+    "loop_end": 165.56,
+    "next_id": 7
+  },
+  {
+    "id": 7,
+    "loop_start": 169.84,
+    "loop_end": 171.21,
+    "next_id": 8
+  },
+  {
+    "id": 8,
+    "loop_start": 173.61,
+    "loop_end": 181.15,
+    "next_id": 9
+  }
+]

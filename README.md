@@ -1,50 +1,57 @@
-```markdown
-# Video Slides Player (Python / Flask)
+# StaticSlides
 
-Single-page app (Flask serving static files) that plays a local video as "slides" with quick-jump and looping behavior. Includes a visual editor to mark clips and export JSON.
+## 项目简介
+StaticSlides 是一个工具，旨在解决将 PowerPoint (PPT) 固化为视频后播放时可能遇到的问题。通过将 PPT 转换为视频并优化播放体验，StaticSlides 提供了一种兼容性更强的解决方案。
 
-Features
-- Load local video, load / import JSON that describes clips.
-- Space / Enter: fast-forward to next clip start at configured jump speed, then loop that clip.
-- Left Arrow: rewind quickly to previous clip start at configured jump speed, then loop that clip.
-- jump_speed may be configured in JSON globally or per clip.
-- Visual timeline, markers, editor panel to create/edit/delete clips and markers.
-- Export / Import JSON.
-- No npm required.
 
-Run
-1. Create a virtual env (recommended) and install:
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
+### 固化PPT的理由
 
-2. Start server:
-   python app.py
+将 PPT 固化为视频的原因包括：
 
-3. Open your browser at:
-   http://127.0.0.1:5000
+1. **字体兼容性**：不同设备可能缺少 PPT 中使用的字体，导致显示效果不一致。将 PPT 转换为视频可以确保字体效果一致。
+2. **图片嵌入问题**：PPT 中的图片可能因链接丢失或格式不支持而无法正确显示。固化为视频后，所有内容都被嵌入到视频中，避免了此类问题。
+3. **设备兼容性**：PPT 文件在不同版本的 PowerPoint 或其他办公软件中可能出现兼容性问题，而视频格式具有更广泛的支持性。
+4. **播放稳定性**：视频文件可以在大多数播放器中流畅播放，避免了 PPT 播放时可能出现的卡顿或动画不流畅问题。
 
-Packaging
-- To create a zip of the project files, run:
-  python create_zip.py
 
-JSON format accepted/generated
-- Two forms accepted:
-  1) Array of clip objects:
-     [
-       { "number":1, "start":"00:00:00.000", "end":"00:00:04.500", "type":"loop", "description":"Intro", "animate_curve":"ease", "jump_speed":6 },
-       ...
-     ]
-  2) Object with global jump speed:
-     {
-       "jump_speed": 6,
-       "clips": [ { ... }, ... ]
-     }
+## 功能
+- 提供视频的循环播放功能。
+- 支持视频之间的平滑过渡。
+- 提供视频缩略图以便快速预览。
 
-- Each clip's start/end can be a number (seconds) or timecode string "MM:SS.mmm" / "HH:MM:SS.mmm".
-- If clip has "jump_speed", it overrides the global jump speed used when jumping into that clip.
-
-Notes
-- Browser restrictions: fast reverse playback is simulated by stepping backward; smoothness depends on browser.
-- The app is fully client-side for video playback; Flask only serves the static files and local UI.
+## 文件结构
 ```
+.
+├── 0-gui_clip.py          # GUI 剪辑工具
+├── 1-main.py              # 主程序入口
+├── config.json            # 配置文件
+├── processor.py           # 视频处理逻辑
+├── source.mp4             # 原始视频文件
+├── static/                # 静态资源目录
+│   ├── index.html         # 网页入口文件
+│   ├── videos/            # 视频资源目录
+│   │   ├── playlist.json  # 视频播放列表
+│   │   ├── loops/         # 循环视频
+│   │   ├── thumbnails/    # 视频缩略图
+│   │   └── transitions/   # 视频过渡效果
+└── __pycache__/           # Python 缓存文件
+```
+
+## 使用方法
+1. 准备好需要固化的 PPT 文件。
+2. 使用工具将 PPT 转换为视频。
+3. 将生成的视频文件放入 `static/videos/loops/` 目录。
+4. 配置 `playlist.json` 文件以定义播放顺序。
+5. 运行 `1-main.py` 启动程序。
+
+## 适用场景
+- 需要在不同设备上播放 PPT 内容时，避免兼容性问题。
+- 提供无缝的视频播放体验。
+- 用于展示、会议或教学场景。
+
+## 依赖
+- Python 3.10 或更高版本。
+- 相关的 Python 库（请查看 `requirements.txt`）。
+
+## 许可证
+本项目采用 MIT 许可证。

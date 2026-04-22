@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT 影院级极速演示</title>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+            font-family: 'Segoe UI', sans-serif;
+            user-select: none;
+        }
+
+        .stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            pointer-events: none;
+            will-change: opacity;
+        }
+
+        video.visible {
+            opacity: 1;
+            z-index: 2;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+        }
+
+        .nav-zone {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+
+        .zone-prev {
+            width: 15%;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.6), transparent);
+            opacity: 0;
+        }
+
+        .zone-prev:hover {
+            opacity: 1;
+        }
+
+        .zone-next {
+            flex-grow: 1;
+        }
+
+        .arrow-icon {
+            color: white;
+            font-size: 40px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+        }
+
+        .thumb-drawer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 140px;
+            background: rgba(20, 20, 20, 0.95);
+            border-top: 1px solid #444;
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            overflow-x: auto;
+            padding: 0 20px;
+            z-index: 20;
+        }
+
+        .thumb-drawer.open {
+            transform: translateY(0);
+        }
+
+        .thumb-item {
+            flex: 0 0 auto;
+            width: 140px;
+            margin-right: 12px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .thumb-item:hover {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+
+        .thumb-item.active {
+            opacity: 1;
+            border: 2px solid #00E676;
+            border-radius: 4px;
+        }
+
+        .thumb-item img {
+            width: 100%;
+            border-radius: 2px;
+            display: block;
+        }
+
+        .thumb-item span {
+            color: #aaa;
+            font-size: 11px;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 30;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+            cursor: pointer;
+        }
+
+        #debug {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00E676;
+            font-family: monospace;
+            font-size: 14px;
+            display: none;
+            z-index: 100;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="stage">
+        <video id="v1" muted playsinline></video>
+        <video id="v2" muted playsinline></video>
+
+        <div id="ui-layer">
+            <div class="nav-zone zone-prev" id="btn-prev">
+                <div class="arrow-icon">❮</div>
+            </div>
+            <div class="nav-zone zone-next" id="btn-next"></div>
+        </div>
+
+        <button class="toggle-btn" id="btn-toggle">Pages</button>
+        <div class="thumb-drawer" id="drawer"></div>
+        <div id="debug"></div>
+    </div>
+
+<script>
+    // --- 核心参数 ---
+    const MAX_TOTAL_TIME = 3.5; // 总时间预算 (稍微放宽一点，给入场动画留余地)
+    const MAX_TRAVEL_RATE = 128.0; // 赶路阶段的最大倍速 (浏览器硬件解码上限通常在16x)
+    const ARRIVAL_RATE = 1.2;     // 入场动画固定倍速 (原速)
+
+    // --- 全局状态 ---
+    let config = [];
+    let currentNodeId = 0;
+    let isTransitioning = false;
+    let activePlayer = document.getElementById('v1');
+    let hiddenPlayer = document.getElementById('v2');
+
+    const debugEl = document.getElementById('debug');
+    function log(msg) { debugEl.innerText = msg; console.log(msg); }
+
+    // --- 初始化 ---
+    async function init() {
+        try {
+            const res = await fetch('/static/videos/playlist.json');
+            config = await res.json();
+            renderThumbnails();
+
+            if (config.length > 0) {
+                loadLoop(activePlayer, config[0]);
+                const startHandler = () => {
+                    activePlayer.classList.add('visible');
+                    activePlayer.play();
+                    highlightThumb(0);
+
+                    document.getElementById('btn-next').removeEventListener('click', startHandler);
+                    document.getElementById('btn-next').addEventListener('click', () => goNext());
+                    document.getElementById('btn-prev').addEventListener('click', (e) => { e.stopPropagation(); goPrev(); });
+                };
+                document.getElementById('btn-next').addEventListener('click', startHandler);
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    // --- 播放控制 ---
+
+    function loadLoop(video, node) {
+        video.src = `/static/videos/${node.loop_src}`;
+        video.loop = true;
+        video.playbackRate = 1.0;
+        video.onended = null;
+    }
+
+    // --- 智能序列构建器 (核心修改区域) ---
+
+    function jumpToPage(targetId) {
+        if (isTransitioning || targetId === currentNodeId) return;
+
+        const currIdx = config.findIndex(n => n.id === currentNodeId);
+        const targetIdx = config.findIndex(n => n.id === targetId);
+        if (currIdx === -1 || targetIdx === -1) return;
+
+        isTransitioning = true;
+
+        // 1. 构建原始序列
+        const sequence = buildFullSequence(currIdx, targetIdx);
+
+        if (sequence.length === 0) {
+            // 无路径，直接硬切
+            finishSequence(config[targetIdx]);
+            return;
+        }
+
+        // 2. 分离 "赶路段" 和 "入场段"
+        // 最后一个片段通常是进入目标页的过渡 (Transition)
+        const lastItem = sequence[sequence.length - 1];
+        const travelItems = sequence.slice(0, sequence.length - 1);
+
+        // 3. 计算时间预算
+        const arrivalDuration = lastItem.duration;
+        const travelDuration = travelItems.reduce((sum, item) => sum + item.duration, 0);
+
+        // 预算：总时间 - 入场消耗的时间 (入场固定1.0x)
+        // 例如：总预算3.5s，入场动画1.5s，那么剩下2.0s给赶路
+        let travelTimeBudget = MAX_TOTAL_TIME - (arrivalDuration / ARRIVAL_RATE);
+
+        // 兜底：如果入场动画太长(超过总预算)，或者预算极小，给赶路段保留最少 0.5s
+        if (travelTimeBudget < 0.5) travelTimeBudget = 0.5;
+
+        // 4. 计算赶路倍速
+        let travelRate = 1.0;
+        if (travelItems.length > 0) {
+            travelRate = 5.0*travelDuration / travelTimeBudget;
+            // 限制：既不能太慢(至少1.0)，也不能超过浏览器极限
+            if (travelRate < 1.0) travelRate = 1.0;
+            if (travelRate > MAX_TRAVEL_RATE) travelRate = MAX_TRAVEL_RATE;
+        }
+
+        log(`Trip: ${sequence.length} clips | Travel Rate: ${travelRate.toFixed(1)}x | Arrival: 1.0x`);
+
+        // 5. 将倍速写入每个 Item
+        travelItems.forEach(item => item.rate = travelRate);
+        lastItem.rate = ARRIVAL_RATE; // 最后一项固定原速
+
+        // 6. 执行
+        playQueue(sequence, config[targetIdx]);
+    }
+
+    function buildFullSequence(startIdx, endIdx) {
+        let seq = [];
+        const startNode = config[startIdx];
+        const currentTime = activePlayer.currentTime || 0;
+
+        if (startIdx < endIdx) {
+            // === 正向跳转 ===
+            // A. 当前 Loop 剩余
+            const loopDuration = startNode.loop_duration || 0;
+            const remaining = loopDuration - currentTime;
+            if (remaining > 0.1) {
+                seq.push({
+                    url: startNode.loop_src,
+                    startTime: currentTime,
+                    duration: remaining
+                });
+            }
+
+            // B. 中间路径
+            for (let i = startIdx; i < endIdx; i++) {
+                const curr = config[i];
+                if (curr.trans_src) {
+                    seq.push({ url: curr.trans_src, duration: curr.trans_duration || 1.0 });
+                }
+                if (i + 1 < endIdx) {
+                    const nextNode = config[i + 1];
+                    //seq.push({ url: nextNode.loop_src, duration: nextNode.loop_duration || 1.0 });
+                }
+            }
+        } else {
+            // === 反向跳转 ===
+            // A. 当前 Loop 反向剩余
+            const loopDuration = startNode.loop_duration || 0;
+            const revStartTime = loopDuration - currentTime;
+            if (currentTime > 0.1) {
+                seq.push({
+                    url: startNode.loop_rev_src,
+                    startTime: revStartTime,
+                    duration: currentTime
+                });
+            }
+
+            // B. 中间路径
+            for (let i = startIdx; i > endIdx; i--) {
+                const curr = config[i];
+                const prev = config[i - 1];
+
+                // 反向 Trans (prev -> curr 的反向)
+                if (prev.trans_rev_src) {
+                    seq.push({ url: prev.trans_rev_src, duration: prev.trans_duration || 1.0 });
+                }
+                // 中间 Loop 反向
+                if (i - 1 > endIdx) {
+                    //seq.push({ url: prev.loop_rev_src, duration: prev.loop_duration || 1.0 });
+                }
+            }
+        }
+        return seq;
+    }
+
+    // --- 队列执行引擎 ---
+
+    async function playQueue(queue, finalNode) {
+        let idx = 0;
+
+        const playStep = async () => {
+            if (idx >= queue.length) {
+                finishSequence(finalNode);
+                return;
+            }
+
+            const item = queue[idx];
+            const nextItem = queue[idx + 1];
+
+            const pPlay = hiddenPlayer;
+            const pCurr = activePlayer;
+
+            // 设置资源
+            pPlay.src = `/static/videos/${item.url}`;
+            pPlay.loop = false;
+
+            try {
+                await pPlay.load();
+                if (item.startTime) pPlay.currentTime = item.startTime;
+
+                await pPlay.play();
+
+                // 关键修改：读取每个片段独立的 rate
+                pPlay.playbackRate = item.rate || 1.0;
+
+                // 切换画面
+                pPlay.classList.add('visible');
+                pCurr.classList.remove('visible');
+
+                activePlayer = pPlay;
+                hiddenPlayer = pCurr;
+
+                // 预加载逻辑
+                if (nextItem) {
+                    hiddenPlayer.src = `/static/videos/${nextItem.url}`;
+                    hiddenPlayer.load();
+                } else {
+                    hiddenPlayer.src = `/static/videos/${finalNode.loop_src}`;
+                    hiddenPlayer.loop = true;
+                    hiddenPlayer.load();
+                }
+
+                activePlayer.onended = () => {
+                    idx++;
+                    playStep();
+                };
+
+            } catch (e) {
+                console.error("Play error:", e);
+                finishSequence(finalNode);
+            }
+        };
+
+        playStep();
+    }
+
+    async function finishSequence(targetNode) {
+        const loopP = hiddenPlayer;
+        if (!loopP.src.includes(targetNode.loop_src)) {
+            loadLoop(loopP, targetNode);
+        } else {
+            loopP.loop = true;
+            loopP.onended = null;
+        }
+
+        try {
+            await loopP.play();
+            loopP.playbackRate = 1.0; // 确保进入循环后恢复原速
+            loopP.classList.add('visible');
+            activePlayer.classList.remove('visible');
+
+            activePlayer = loopP;
+            hiddenPlayer = (activePlayer.id === 'v1') ? document.getElementById('v2') : document.getElementById('v1');
+
+            currentNodeId = targetNode.id;
+            highlightThumb(targetNode.id);
+            isTransitioning = false;
+        } catch (e) { console.error(e); isTransitioning = false; }
+    }
+
+    // --- 交互 ---
+    function goNext() {
+        const idx = config.findIndex(n => n.id === currentNodeId);
+        if (idx !== -1) {
+            const nextIdx = (idx + 1) % config.length;
+            jumpToPage(config[nextIdx].id);
+        }
+    }
+
+    function goPrev() {
+        const idx = config.findIndex(n => n.id === currentNodeId);
+        if (idx !== -1) {
+            const prevIdx = (idx - 1 + config.length) % config.length;
+            jumpToPage(config[prevIdx].id);
+        }
+    }
+
+    function renderThumbnails() {
+        const drawer = document.getElementById('drawer');
+        drawer.innerHTML = '';
+        config.forEach(node => {
+            const div = document.createElement('div');
+            div.className = 'thumb-item';
+            div.id = `thumb-${node.id}`;
+            div.innerHTML = `<img src="/static/videos/${node.thumb_src}"><span>Page ${node.id}</span>`;
+            div.onclick = (e) => { e.stopPropagation(); jumpToPage(node.id); };
+            drawer.appendChild(div);
+        });
+    }
+
+    function highlightThumb(id) {
+        document.querySelectorAll('.thumb-item').forEach(el => el.classList.remove('active'));
+        const el = document.getElementById(`thumb-${id}`);
+        if (el) {
+            el.classList.add('active');
+            el.scrollIntoView({ behavior: "smooth", inline: "center" });
+        }
+    }
+
+    document.getElementById('btn-toggle').onclick = (e) => {
+        e.stopPropagation();
+        document.getElementById('drawer').classList.toggle('open');
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') goNext();
+        if (e.key === 'ArrowLeft') goPrev();
+        if (e.key === 'd') debugEl.style.display = (debugEl.style.display === 'none' ? 'block' : 'none');
+    });
+
+    init();
+</script>
+
+
+</body>
+
+</html>
